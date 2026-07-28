@@ -18,7 +18,12 @@
 # the default full check set, e.g.:
 #   ./scripts/weekly-scan.sh cis_4.0_aws
 
-set -euo pipefail
+set -uo pipefail
+# Note: we deliberately do NOT use `set -e` here.
+# Prowler exits with a non-zero code whenever it finds FAIL results —
+# that's expected, normal behavior (useful for CI/CD gating), not a script error.
+# `set -e` would kill this script the moment any FAIL is found, before
+# we ever reach the summary output below.
 
 PROFILE="prowler-scan"
 VENV_PATH="$HOME/prowler-venv"
@@ -53,14 +58,17 @@ if [ -n "$COMPLIANCE" ]; then
     --profile "$PROFILE" \
     --compliance "$COMPLIANCE" \
     --output-formats csv json-ocsf html \
-    --output-directory "$OUTPUT_DIR"
+    --output-directory "$OUTPUT_DIR" || true
 else
   echo "Running full check scan"
   prowler aws \
     --profile "$PROFILE" \
     --output-formats csv json-ocsf html \
-    --output-directory "$OUTPUT_DIR"
+    --output-directory "$OUTPUT_DIR" || true
 fi
+# The `|| true` above intentionally absorbs Prowler's exit code so this
+# script continues to the summary section below regardless of whether
+# Prowler found FAIL results (expected) or PASS-only results.
 
 echo ""
 echo "=================================================="
